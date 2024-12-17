@@ -1,0 +1,246 @@
+- Add new projet ASP.NET Core WEb api
+- installer depuis nuget: Microsoft.EntityFrameworkCore.SqlServer
+- creer fichier models => class (Name:Product):
+namespace CRUDWithWebApi.Models
+{
+    public class Product
+    {
+        public int Id { get; set; }
+        [Required]
+        public string? ProductName { get; set; }
+        [Required]
+        public float Price { get; set; }
+        [Required]
+        public int Qty { get; set; }
+    }
+}
+
+- creer fichier DataAccessLayer => ajouter class (Name:MyAppDbContext)
+using CRUDWithWebApi.Models;
+using Microsoft.EntityFrameworkCore;
+
+namespace CRUDWithWebApi.DataAccessLayer
+{
+    public class MyAppDbContext :DbContext
+    {
+        public MyAppDbContext(DbContextOptions options) : base(options) 
+        {
+            
+        }
+        public DbSet<Product> Products { get; set; }
+    }
+}
+
+- Creer datatable:Nuget Console: add-migration Initial, apres update-database
+si ca marche pas (Nettoyer la solution :Allez dans le menu Build puis sélectionnez Clean Solution)
+Allez dans le menu Build puis sélectionnez Rebuild Solution.
+Add-Migration InitialCreate -Project CRUDWithWebApi 
+Add-Migration InitialCreate -Project CRUDWithWebApi -StartupProject CustomIdentity
+
+
+- Creer un controller de type controller dans le fichier, choisir API => von Entity Framework, en choisissant le modele et le nom(ProductsName)
+(Pour mettre a jour la base de donnnes apres un changement il faut faire dans Nuget console: Add-Migration UpdatePriceToDouble => Update-Database)
+
+****************************************** Maintenant Revenir sur Projet MVC:******************************************
+-Creer une classe dans modele Nom:ProductViewModel:
+Copier les proprietes de Products.cs du Projet WebAPI dans ProductViewModel et ajouter ces modif aussi:
+
+public int Id { get; set; }
+[Required]
+[DisplayName("Product Name")]
+public string? ProductName { get; set; }
+[Required]
+public double Price { get; set; }
+[Required]
+public int Qty { get; set; }
+
+
+-Creer dans Controllers un Controller MVC Empty (Name="ProductController"), ajouter dans Uri lien depuis(Properties=>launschSettings), puis prendre le localhost depuis https et le port le prendre de https le premier.
+ajouter ce code, pour JsonConvert il faut installer depuis click droit et choisir installer paquet newtonsoft voici le code:
+
+using CustomIdentity.Models;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore.Storage.Json;
+using Newtonsoft.Json;
+
+namespace CustomIdentity.Controllers
+{
+    public class ProductController : Controller
+    {
+        Uri baseAddress = new Uri("https://localhost:44394/api");
+        private readonly HttpClient _client;
+
+        public ProductController()
+        {
+            _client = new HttpClient();
+            _client.BaseAddress = baseAddress;
+        }
+
+        [HttpGet]
+        public IActionResult Index()
+        {
+            List<ProductViewModel> productList = new List<ProductViewModel>();
+            HttpResponseMessage response = _client.GetAsync(_client.BaseAddress + "/products/Getproducts").Result; ***ici comme afficher sur swagger***
+            if (response.IsSuccessStatusCode) 
+            {
+                string data = response.Content.ReadAsStringAsync().Result;
+                productList = JsonConvert.DeserializeObject<List<ProductViewModel>>(data);
+            }
+            return View(productList);
+        }
+    }
+}
+** Puis clique droit, ajouter view (Ansicht hinzufügen),  puis Razor-Ansicht, dans les parametres modifier Vorlage(Template) = List => Modellklasse= ProductViewModel, puis Add
+
+-- ouvrir ProductController de MVC, puis ajouter cette methode:
+[HttpGet]
+public IActionResult Create() 
+{
+
+    return View();
+}
+
+ensuite clique droit dans la methode et ajouter view => Razor View (pas empty)
+
+
+
+-- Propriete dans projekt mappe du projet, puis selection plus startproject, puis Start in action,
+ensuite Name: Create => Vorlage: Create => Modellklasse: ProductViewModel > Add
+
+- Puis une autre methode dans Controller:
+[HttpPost]
+   [HttpGet]
+   public IActionResult Create()
+   { 
+       return View();
+   }
+
+       [HttpPost]
+   public IActionResult Create(ProductViewModel model) 
+   {
+
+       try
+       {
+           string data = JsonConvert.SerializeObject(model);
+           StringContent content = new StringContent(data, Encoding.UTF8, "application/json");
+           HttpResponseMessage response = _client.PostAsync(_client.BaseAddress + "/Products/PostProduct", content).Result;
+           if (response.IsSuccessStatusCode)
+           {
+               TempData["successMessage"] = "Product Created.";
+               return RedirectToAction("Index");
+           }
+       }
+       catch (Exception ex)
+       {
+           TempData["errorMessage"] = ex.Message;
+           return View();
+       }
+       return View();
+   }
+   
+   -- maintenant pour edit ajouter ca, puis ajouter ansicht razor:
+    [HttpGet]
+ public IActionResult Edit(int id)
+ {
+     try
+     {
+         ProductViewModel product = new ProductViewModel();
+         HttpResponseMessage response = _client.GetAsync(_client.BaseAddress + "/Products/GetProduct/" + id).Result;
+
+         if (response.IsSuccessStatusCode)
+         {
+             string data = response.Content.ReadAsStringAsync().Result;
+             product = JsonConvert.DeserializeObject<ProductViewModel>(data);
+         }
+         return View(product);
+     }
+     catch (Exception ex)
+     {
+         TempData["errorMessage"] = ex.Message;
+         return View();
+     }
+
+ }
+
+[HttpPost]
+public IActionResult Edit(ProductViewModel model)
+{
+    try
+    {
+        string data = JsonConvert.SerializeObject(model);
+        StringContent content = new StringContent(data, Encoding.UTF8, "application/json");
+        HttpResponseMessage response = _client.PutAsync(_client.BaseAddress + "/Products/PutProduct/" + model.Id, content).Result;
+
+        if (response.IsSuccessStatusCode)
+        {
+            TempData["successMessage"] = "Product details updated.";
+            return RedirectToAction("Index");
+        }
+
+    }
+    catch (Exception ex)
+    {
+
+        TempData["errorMessage"] = ex.Message;
+        return View();
+    }
+    return View();
+}
+ 
+-- Modifier dans Edit.cshtml le titre pour afficher le nom selection avec:
+<h4>@ViewData["Title"]</h4>
+*****
+Puis aller dans Index.cshtml est enleve le commentaire dans le parametre et midifier comme ca pour edit et delete:
+@Html.ActionLink("Edit", "Edit", new {  id=item.Id  }) |
+    @Html.ActionLink("Delete", "Delete", new { id = item.Id })
+	
+	
+	
+	--- pour delete, sans oublier de creer ansicht ou view pour delete et non pas deleteconfirmed:
+	[HttpGet]
+public IActionResult Delete(int id)
+{
+    try
+    {
+        ProductViewModel product = new ProductViewModel();
+        HttpResponseMessage response = _client.GetAsync(_client.BaseAddress + "/Products/GetProduct/" + id).Result;
+
+        if (response.IsSuccessStatusCode)
+        {
+            string data = response.Content.ReadAsStringAsync().Result;
+            product = JsonConvert.DeserializeObject<ProductViewModel>(data);
+        }
+        return View(product);
+    }
+    catch (Exception ex)
+    {
+        TempData["errorMessage"] = ex.Message;
+        return View();
+    }
+}
+
+[HttpPost,ActionName("Delete")]
+public IActionResult DeleteConfirmed(int id)
+{
+    try
+    {
+         HttpResponseMessage response = _client.DeleteAsync(_client.BaseAddress + "/Products/DeleteProduct/" + id).Result;
+
+        if (response.IsSuccessStatusCode)
+        {
+            TempData["successMessage"] = "Product details deleted.";
+            return RedirectToAction("Index");
+        }
+        else
+        {
+            string errorMessage = response.Content.ReadAsStringAsync().Result;
+            TempData["errorMessage"] = "Failed to delete product.";
+        }
+    }
+    catch (Exception ex)
+    {
+        TempData["errorMessage"] = ex.Message;
+        return View();
+    }
+    return View();
+}
