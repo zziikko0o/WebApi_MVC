@@ -80,8 +80,57 @@ Les variables d'environnement peuvent être définies dans launchSettings.json p
   }
 }
 
+************ Création du modèle
+
+|-- /WebAPI									
+|   |-- /Controllers
+|   |-- /Models
+|   |   |-- Assistant.cs
+|   |-- /Services
+|   |-- Program.cs
+|   |-- appsettings.json
+|   |-- launchSettings.json
+
+
+|-- /MVCApp
+|   |-- /Controllers
+|   |-- /Models
+|   |   |-- Assistant.cs  (ou référence au projet WebAPI)
+|   |-- /Views
+|   |   |-- /Assistants
+|   |       |-- Index.cshtml
+|   |-- Program.cs
+
+
+Le modèle Assistant doit être créé dans le dossier Models du projet Web API
+Assistant.cs:
+namespace WebAPI.Models
+{
+    public class Assistant
+    {
+        public string Id { get; set; }
+        public string Name { get; set; }
+        public string Description { get; set; }
+    }
+}
+
+Dans le projet MVC
+
+namespace MVCApp.Models
+{
+    public class Assistant
+    {
+        public string Id { get; set; }
+        public string Name { get; set; }
+        public string Description { get; set; }
+    }
+}
+
+
 
  ************ Créer un service pour interagir avec l'API Genesys : Créez une classe dans le projet Web API pour encapsuler les appels Genesys :
+ 
+using WebAPI.Models;
 public class GenesysService
 {
     private readonly AssistantsApi _assistantsApi;
@@ -129,8 +178,10 @@ public class GenesysService
 }
 
 
-************Exposer un contrôleur Web API : Créez un contrôleur pour exposer les fonctionnalités Genesys.
+************Exposer un contrôleur Web API : Créez un contrôleur pour exposer les fonctionnalités Genesys(AssistantsController )
 
+// WebAPI/Controllers/AssistantsController.cs
+using WebAPI.Models;
 [ApiController]
 [Route("api/[controller]")]
 public class AssistantsController : ControllerBase
@@ -175,6 +226,14 @@ public class AssistantsController : ControllerBase
 ************ Étape 2 : Appeler l'API Web depuis l'application MVC ************
 Configurer le client HTTP : Ajoutez un service pour appeler l'API Web dans votre projet MVC.
 
+
+// MVCApp/Services/AssistantsApiClient.cs
+using MVCApp.Models;  // Référence au modèle Assistant
+using Newtonsoft.Json;
+using System.Net.Http;
+using System.Threading.Tasks;
+using System.Collections.Generic;
+
 public class AssistantsApiClient
 {
     private readonly HttpClient _httpClient;
@@ -197,6 +256,9 @@ public class AssistantsApiClient
 
 
 ************ Ajouter un contrôleur dans le projet MVC : Créez un contrôleur pour gérer les vues et les appels aux données.
+
+// MVCApp/Controllers/AssistantsController.cs
+using MVCApp.Models;
 
 public class AssistantsController : Controller
 {
