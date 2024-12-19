@@ -1,0 +1,72 @@
+Methode:
+1. Configuration dans un fichier de variables d'environnement
+Si vous travaillez en local, les variables peuvent être définies dans un fichier launchSettings.json pour une application .NET Core.
+
+Étapes :
+Ouvrir le fichier Properties/launchSettings.json dans votre projet.
+Ajouter vos variables d'environnement dans la section environmentVariables.
+json
+Copy code
+"profiles": {
+  "ProjectName": {
+    "commandName": "Project",
+    "environmentVariables": {
+      "GENESYS_CLOUD_CLIENT_ID": "votre-client-id",
+      "GENESYS_CLOUD_CLIENT_SECRET": "votre-client-secret",
+      "GENESYS_CLOUD_REGION": "us_east_1"
+    }
+  }
+}
+2. Configuration via l’interface Visual Studio
+Si vous utilisez Visual Studio 2022, les variables peuvent être définies dans les paramètres de débogage.
+
+Étapes :
+Clic droit sur le projet dans l'Explorateur de solutions > Propriétés > Déboguer.
+Sous "Variables d'environnement", ajoutez les valeurs :
+Clé : GENESYS_CLOUD_CLIENT_ID | Valeur : votre-client-id
+Clé : GENESYS_CLOUD_CLIENT_SECRET | Valeur : votre-client-secret
+Clé : GENESYS_CLOUD_REGION | Valeur : us_east_1
+3. Utilisation d’un fichier de configuration (.json)
+Vous pouvez également stocker ces informations dans un fichier de configuration JSON comme appsettings.json, puis les charger dans votre application.
+
+Étapes :
+Ajoutez les informations dans appsettings.json :
+json
+Copy code
+{
+  "GenesysCloud": {
+    "ClientId": "votre-client-id",
+    "ClientSecret": "votre-client-secret",
+    "Region": "us_east_1"
+  }
+}
+Chargez les valeurs dans votre application à l’aide de Configuration.
+csharp
+Copy code
+var config = new ConfigurationBuilder()
+    .SetBasePath(Directory.GetCurrentDirectory())
+    .AddJsonFile("appsettings.json")
+    .Build();
+
+string clientId = config["GenesysCloud:ClientId"];
+string clientSecret = config["GenesysCloud:ClientSecret"];
+string region = config["GenesysCloud:Region"];
+4. Définition manuelle sur votre machine
+Pour un environnement local, vous pouvez définir les variables d’environnement directement sur votre système d’exploitation.
+
+Sous Windows :
+Ouvrir les paramètres système avancés.
+Dans Variables d’environnement, ajoutez :
+Nom : GENESYS_CLOUD_CLIENT_ID | Valeur : votre-client-id
+Nom : GENESYS_CLOUD_CLIENT_SECRET | Valeur : votre-client-secret
+Nom : GENESYS_CLOUD_REGION | Valeur : us_east_1
+Sous Linux/macOS :
+Ajoutez les variables dans le fichier ~/.bashrc, ~/.zshrc, ou équivalent.
+
+bash
+Copy code
+export GENESYS_CLOUD_CLIENT_ID="votre-client-id"
+export GENESYS_CLOUD_CLIENT_SECRET="votre-client-secret"
+export GENESYS_CLOUD_REGION="us_east_1"
+Rechargez ensuite le terminal avec source ~/.bashrc.
+Rechargez ensuite le terminal avec source ~/.bashrc.

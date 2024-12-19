@@ -1,0 +1,280 @@
+
+https://developer.genesys.cloud/analyticsdatamanagement/recording/recordings-downloader
+
+Structure du projet
+Voici la structure où vous allez créer les fichiers nécessaires :
+
+Controllers : pour vos contrôleurs (fichiers .cs).
+Models : pour vos classes métier (fichiers .cs).
+appsettings.json : pour les configurations statiques.
+Program.cs : pour initialiser votre application.
+
+
+************ Étape 1 : Connecter le backend à Genesys avec le SDK ************
+1-Configurer le SDK Genesys :
+
+- Ajoutez le SDK Genesys en utilisant NuGet dans votre projet Web API :
+
+dotnet add package PureCloudPlatform.Client.V2
+
+************ Etape 2 ************
+
+A. Modifier le fichier appsettings.json
+
+{
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  },
+  "AllowedHosts": "*",
+  "GenesysCloud": {
+    "ClientId": "",
+    "ClientSecret": "",
+    "Region": ""
+  }
+}
+
+
+B. Ajouter des variables dans launchSettings.json
+Les variables d'environnement peuvent être définies dans launchSettings.json pour chaque profil de lancement (comme https, http ou IIS Express).
+
+{
+  "$schema": "http://json.schemastore.org/launchsettings.json",
+  "iisSettings": {
+    "windowsAuthentication": false,
+    "anonymousAuthentication": true,
+    "iisExpress": {
+      "applicationUrl": "http://localhost:6957",
+      "sslPort": 44359
+    }
+  },
+  "profiles": {
+    "http": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "launchBrowser": true,
+      "launchUrl": "swagger",
+      "applicationUrl": "http://localhost:5269",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "GenesysCloud__ClientId": "your-client-id",
+        "GenesysCloud__ClientSecret": "your-client-secret",
+        "GenesysCloud__Region": "your-region"
+      }
+    },
+    "https": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "launchBrowser": true,
+      "launchUrl": "swagger",
+      "applicationUrl": "https://localhost:7232;http://localhost:5269",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "GenesysCloud__ClientId": "your-client-id",
+        "GenesysCloud__ClientSecret": "your-client-secret",
+        "GenesysCloud__Region": "your-region"
+      }
+    },
+  }
+}
+
+
+ ************ Créer un service pour interagir avec l'API Genesys : Créez une classe dans le projet Web API pour encapsuler les appels Genesys :
+public class GenesysService
+{
+    private readonly AssistantsApi _assistantsApi;
+
+    public GenesysService()
+    {
+        // Configure Genesys SDK
+        var clientId = Environment.GetEnvironmentVariable("GENESYS_CLOUD_CLIENT_ID");
+        var clientSecret = Environment.GetEnvironmentVariable("GENESYS_CLOUD_CLIENT_SECRET");
+        var region = Environment.GetEnvironmentVariable("GENESYS_CLOUD_REGION");
+
+        PureCloudRegionHosts regionHost = Enum.Parse<PureCloudRegionHosts>(region);
+        Configuration.Default.ApiClient.setBasePath(regionHost);
+
+        var tokenInfo = Configuration.Default.ApiClient.PostToken(clientId, clientSecret);
+        Configuration.Default.AccessToken = tokenInfo.AccessToken;
+
+        _assistantsApi = new AssistantsApi();
+    }
+
+    public List<Assistant> GetAssistants()
+    {
+        return _assistantsApi.GetAssistants().Entities.ToList();
+    }
+
+    public Assistant GetAssistantById(string assistantId)
+    {
+        return _assistantsApi.GetAssistant(assistantId);
+    }
+
+    public Assistant CreateAssistant(Assistant assistant)
+    {
+        return _assistantsApi.PostAssistant(assistant);
+    }
+
+    public void UpdateAssistant(string assistantId, Assistant assistant)
+    {
+        _assistantsApi.PatchAssistant(assistantId, assistant);
+    }
+
+    public void DeleteAssistant(string assistantId)
+    {
+        _assistantsApi.DeleteAssistant(assistantId);
+    }
+}
+
+
+************Exposer un contrôleur Web API : Créez un contrôleur pour exposer les fonctionnalités Genesys.
+
+[ApiController]
+[Route("api/[controller]")]
+public class AssistantsController : ControllerBase
+{
+    private readonly GenesysService _genesysService;
+
+    public AssistantsController()
+    {
+        _genesysService = new GenesysService();
+    }
+
+    [HttpGet]
+    public IActionResult GetAssistants()
+    {
+        var assistants = _genesysService.GetAssistants();
+        return Ok(assistants);
+    }
+
+    [HttpPost]
+    public IActionResult CreateAssistant([FromBody] Assistant assistant)
+    {
+        var newAssistant = _genesysService.CreateAssistant(assistant);
+        return CreatedAtAction(nameof(GetAssistants), new { id = newAssistant.Id }, newAssistant);
+    }
+
+    [HttpPut("{id}")]
+    public IActionResult UpdateAssistant(string id, [FromBody] Assistant assistant)
+    {
+        _genesysService.UpdateAssistant(id, assistant);
+        return NoContent();
+    }
+
+    [HttpDelete("{id}")]
+    public IActionResult DeleteAssistant(string id)
+    {
+        _genesysService.DeleteAssistant(id);
+        return NoContent();
+    }
+}
+
+ 
+************ Étape 2 : Appeler l'API Web depuis l'application MVC ************
+Configurer le client HTTP : Ajoutez un service pour appeler l'API Web dans votre projet MVC.
+
+public class AssistantsApiClient
+{
+    private readonly HttpClient _httpClient;
+
+    public AssistantsApiClient(HttpClient httpClient)
+    {
+        _httpClient = httpClient;
+    }
+
+    public async Task<List<Assistant>> GetAssistantsAsync()
+    {
+        var response = await _httpClient.GetAsync("api/Assistants");
+        response.EnsureSuccessStatusCode();
+
+        var content = await response.Content.ReadAsStringAsync();
+        return JsonConvert.DeserializeObject<List<Assistant>>(content);
+    }
+}
+
+
+
+************ Ajouter un contrôleur dans le projet MVC : Créez un contrôleur pour gérer les vues et les appels aux données.
+
+public class AssistantsController : Controller
+{
+    private readonly AssistantsApiClient _apiClient;
+
+    public AssistantsController(AssistantsApiClient apiClient)
+    {
+        _apiClient = apiClient;
+    }
+
+    public async Task<IActionResult> Index()
+    {
+        var assistants = await _apiClient.GetAssistantsAsync();
+        return View(assistants);
+    }
+}
+
+
+************ Créer une vue Razor : Créez une vue Index.cshtml pour afficher les données dans un tableau.
+
+@model List<Assistant>
+
+<table class="table">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Nom</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var assistant in Model)
+        {
+            <tr>
+                <td>@assistant.Id</td>
+                <td>@assistant.Name</td>
+                <td>
+                    <a href="#" class="btn btn-primary">Modifier</a>
+                    <a href="#" class="btn btn-danger">Supprimer</a>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+
+
+************ Étape 3 : Configurer la communication entre projets ************
+Configurer le routage dans launchSettings.json : Assurez-vous que les deux projets (Web API et MVC) fonctionnent sur des ports différents.
+
+
+************ Configurer l'injection de dépendance : Ajoutez le service client dans Program.cs de l'application MVC.
+
+builder.Services.AddHttpClient<AssistantsApiClient>(client =>
+{
+    client.BaseAddress = new Uri("https://localhost:5001/");
+});
+
+
+************ Le client HTTP dans le projet MVC est configuré pour appeler l'API Web en utilisant l'URL correcte (par exemple http://localhost:7001).
+Exemple dans Program.cs pour configurer le client HTTP dans MVC :
+
+
+builder.Services.AddHttpClient<AssistantsApiClient>(client =>
+{
+    client.BaseAddress = new Uri("http://localhost:7001/");
+});
+
+Résultat attendu
+L'application MVC affiche un tableau interactif avec les assistants récupérés via l'API Genesys.
+Les actions CRUD sont disponibles pour ajouter, modifier et supprimer des assistants.
+Les données sont gérées par le projet Web API qui utilise le SDK Genesys.
+
+
+
+
+
+
+
+
+

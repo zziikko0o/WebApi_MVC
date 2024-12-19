@@ -1,0 +1,150 @@
+Structure du projet
+Voici la structure où vous allez créer les fichiers nécessaires :
+
+Controllers : pour vos contrôleurs (fichiers .cs).
+Models : pour vos classes métier (fichiers .cs).
+appsettings.json : pour les configurations statiques.
+Program.cs : pour initialiser votre application.
+
+
+************ Étape 1 : Connecter le backend à Genesys avec le SDK ************
+1-Configurer le SDK Genesys :
+
+- Ajoutez le SDK Genesys en utilisant NuGet dans votre projet Web API :
+
+dotnet add package PureCloudPlatform.Client.V2
+
+************ Etape 2 ************
+
+A. Modifier le fichier appsettings.json
+
+{
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  },
+  "AllowedHosts": "*",
+  "GenesysCloud": {
+    "ClientId": "",
+    "ClientSecret": "",
+    "Region": ""
+  }
+}
+
+
+B. Ajouter des variables dans launchSettings.json
+Les variables d'environnement peuvent être définies dans launchSettings.json pour chaque profil de lancement (comme https, http ou IIS Express).
+
+{
+  "$schema": "http://json.schemastore.org/launchsettings.json",
+  "iisSettings": {
+    "windowsAuthentication": false,
+    "anonymousAuthentication": true,
+    "iisExpress": {
+      "applicationUrl": "http://localhost:6957",
+      "sslPort": 44359
+    }
+  },
+  "profiles": {
+    "http": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "launchBrowser": true,
+      "launchUrl": "swagger",
+      "applicationUrl": "http://localhost:5269",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "GenesysCloud__ClientId": "your-client-id",
+        "GenesysCloud__ClientSecret": "your-client-secret",
+        "GenesysCloud__Region": "your-region"
+      }
+    },
+    "https": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "launchBrowser": true,
+      "launchUrl": "swagger",
+      "applicationUrl": "https://localhost:7232;http://localhost:5269",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "GenesysCloud__ClientId": "your-client-id",
+        "GenesysCloud__ClientSecret": "your-client-secret",
+        "GenesysCloud__Region": "your-region"
+      }
+    },
+  }
+}
+
+C. Ajouter une classe appsettings pour les configurations
+Pour faciliter la gestion des paramètres, vous pouvez ajouter une classe C# pour représenter la section GenesysCloud.
+
+1- Créer une classe GenesysCloudSettings :
+
+- Dans le dossier Models (ou Configuration), ajoutez un fichier GenesysCloudSettings.cs :
+
+public class GenesysCloudSettings
+{
+    public string ClientId { get; set; }
+    public string ClientSecret { get; set; }
+    public string Region { get; set; }
+}
+
+
+2. Ajouter cette classe dans le Program.cs ou Startup.cs pour la lier au fichier appsettings.json :
+builder.Services.Configure<GenesysCloudSettings>(
+    builder.Configuration.GetSection("GenesysCloud"));
+	
+	
+
+ ************ Étape 3 : Utiliser les variables d’environnement dans le code ************
+A. Injection dans un Controller ou un Service
+Pour accéder aux paramètres, injectez-les dans vos services ou contrôleurs.
+
+Exemple dans un contrôleur :
+
+using Microsoft.Extensions.Options;
+
+[ApiController]
+[Route("api/[controller]")]
+public class GenesysController : ControllerBase
+{
+    private readonly GenesysCloudSettings _settings;
+
+    public GenesysController(IOptions<GenesysCloudSettings> options)
+    {
+        _settings = options.Value;
+    }
+
+    [HttpGet("info")]
+    public IActionResult GetInfo()
+    {
+        return Ok(new
+        {
+            ClientId = _settings.ClientId,
+            ClientSecret = _settings.ClientSecret,
+            Region = _settings.Region
+        });
+    }
+}
+
+
+B. Priorité des sources de configuration
+ASP.NET Core fusionne les configurations provenant de différentes sources :
+
+Variables d'environnement (launchSettings.json).
+Fichier appsettings.json.
+Paramètres par défaut définis dans le code.
+Si une variable est définie dans plusieurs endroits, la variable d’environnement a la priorité.
+
+
+ ************ Étape 4 : Tester et vérifier  ************
+Lancer le projet en sélectionnant le profil approprié (par ex. https).
+Accéder à l’API via Swagger ou un client HTTP comme Postman pour vérifier si les valeurs sont correctement récupérées.
+Vérifiez également les logs pour confirmer que l'environnement est bien configuré.
+
+
+
+
+
