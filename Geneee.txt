@@ -131,9 +131,13 @@ namespace MVCApp.Models
  ************ Créer un service pour interagir avec l'API Genesys : Créez une classe dans le projet Web API pour encapsuler les appels Genesys :
  
 using WebAPI.Models;
+using PureCloudPlatform.Client.V2.Model; // Import pour Queue et autres modèles nécessaires
+using PureCloudPlatform.Client.V2.Api; // Import pour QueuesApi
+
 public class GenesysService
 {
     private readonly AssistantsApi _assistantsApi;
+    private readonly QueuesApi _queuesApi;
 
     public GenesysService()
     {
@@ -149,6 +153,7 @@ public class GenesysService
         Configuration.Default.AccessToken = tokenInfo.AccessToken;
 
         _assistantsApi = new AssistantsApi();
+        _queuesApi = new QueuesApi();
     }
 
     public List<Assistant> GetAssistants()
@@ -175,6 +180,28 @@ public class GenesysService
     {
         _assistantsApi.DeleteAssistant(assistantId);
     }
+
+        // Méthodes existantes...
+
+    public Queue GetQueueForAssistant(string assistantId, string queueId)
+    {
+        return _assistantsApi.GetAssistantQueue(assistantId, queueId);
+    }
+
+    public List<Queue> GetAllQueuesAssignedToAssistants()
+    {
+        return _assistantsApi.GetAssistantQueues().Entities.ToList();
+    }
+
+    public void DisassociateQueuesFromAssistant(string assistantId, List<string> queueIds)
+    {
+        _assistantsApi.DeleteAssistantQueues(assistantId, queueIds);
+    }
+
+    public void DisassociateQueueFromAssistant(string assistantId, string queueId)
+    {
+        _assistantsApi.DeleteAssistantQueue(assistantId, queueId);
+    }
 }
 
 
@@ -182,6 +209,8 @@ public class GenesysService
 
 // WebAPI/Controllers/AssistantsController.cs
 using WebAPI.Models;
+using PureCloudPlatform.Client.V2.Model;
+
 [ApiController]
 [Route("api/[controller]")]
 public class AssistantsController : ControllerBase
@@ -218,6 +247,36 @@ public class AssistantsController : ControllerBase
     public IActionResult DeleteAssistant(string id)
     {
         _genesysService.DeleteAssistant(id);
+        return NoContent();
+    }
+
+        // Méthodes existantes...
+
+    [HttpGet("{assistantId}/queues/{queueId}")]
+    public IActionResult GetQueueForAssistant(string assistantId, string queueId)
+    {
+        var queue = _genesysService.GetQueueForAssistant(assistantId, queueId);
+        return Ok(queue);
+    }
+
+    [HttpGet("queues")]
+    public IActionResult GetAllQueuesAssignedToAssistants()
+    {
+        var queues = _genesysService.GetAllQueuesAssignedToAssistants();
+        return Ok(queues);
+    }
+
+    [HttpDelete("{assistantId}/queues")]
+    public IActionResult DisassociateQueuesFromAssistant(string assistantId, [FromBody] List<string> queueIds)
+    {
+        _genesysService.DisassociateQueuesFromAssistant(assistantId, queueIds);
+        return NoContent();
+    }
+
+    [HttpDelete("{assistantId}/queues/{queueId}")]
+    public IActionResult DisassociateQueueFromAssistant(string assistantId, string queueId)
+    {
+        _genesysService.DisassociateQueueFromAssistant(assistantId, queueId);
         return NoContent();
     }
 }
